@@ -19,6 +19,18 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'vendor': ['react', 'react-dom'],
+              'gemini': ['@google/genai'],
+              'prism': ['prismjs']
+            }
+          }
+        },
+        chunkSizeWarningLimit: 800
       }
     };
 });
