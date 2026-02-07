@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { reviewCode } from '../services/geminiService';
-import { ReviewType, ReviewResponse } from '../types';
+import { ReviewType, ReviewResponse, FileFormat } from '../types';
 import Prism from 'prismjs';
 
 // Import Prism components for syntax highlighting
@@ -11,6 +10,44 @@ import 'https://esm.sh/prismjs@1.29.0/components/prism-css';
 import 'https://esm.sh/prismjs@1.29.0/components/prism-json';
 
 const STORAGE_KEY = 'veilux_code_draft';
+
+// Supported coding file extensions
+const CODING_FILE_EXTENSIONS: { [key: string]: FileFormat } = {
+  // JavaScript/TypeScript
+  '.js': FileFormat.JAVASCRIPT,
+  '.jsx': FileFormat.JAVASCRIPT,
+  '.ts': FileFormat.TYPESCRIPT,
+  '.tsx': FileFormat.TYPESCRIPT,
+  // Web
+  '.html': FileFormat.HTML,
+  '.css': FileFormat.CSS,
+  '.json': FileFormat.JSON,
+  // Python
+  '.py': FileFormat.PYTHON,
+  // Java
+  '.java': FileFormat.JAVA,
+  // C++
+  '.cpp': FileFormat.CPP,
+  '.cc': FileFormat.CPP,
+  '.cxx': FileFormat.CPP,
+  '.h': FileFormat.CPP,
+  '.hpp': FileFormat.CPP,
+  // C#
+  '.cs': FileFormat.CSHARP,
+  // Go
+  '.go': FileFormat.GO,
+  // Rust
+  '.rs': FileFormat.RUST,
+  // PHP
+  '.php': FileFormat.PHP,
+  // Ruby
+  '.rb': FileFormat.RUBY,
+  // Swift
+  '.swift': FileFormat.SWIFT,
+  // Kotlin
+  '.kt': FileFormat.KOTLIN,
+  '.kts': FileFormat.KOTLIN,
+};
 
 const severityStyles = {
   critical: {
@@ -36,12 +73,15 @@ const severityStyles = {
 const Reviewer: React.FC = () => {
   const [code, setCode] = useState<string>(() => localStorage.getItem(STORAGE_KEY) || '');
   const [type, setType] = useState<ReviewType>(ReviewType.FULL);
+  const [format, setFormat] = useState<FileFormat>(FileFormat.JAVASCRIPT);
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<ReviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const codeRef = useRef(code);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     codeRef.current = code;
@@ -71,7 +111,7 @@ const Reviewer: React.FC = () => {
     setError(null);
     setResult(null);
     try {
-      const response = await reviewCode(code, type);
+      const response = await reviewCode(code, type, format);
       setResult(response);
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred during the audit.');
@@ -84,6 +124,54 @@ const Reviewer: React.FC = () => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Get file extension
+    const fileName = file.name.toLowerCase();
+    const fileExtension = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+
+    // Check if file is a supported coding file
+    if (!CODING_FILE_EXTENSIONS[fileExtension]) {
+      setFileError(`❌ Unsupported file format: ${fileExtension}. Only coding files are accepted (${Object.keys(CODING_FILE_EXTENSIONS).join(', ')})`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    // Check file size (max 1MB)
+    if (file.size > 1024 * 1024) {
+      setFileError('❌ File size exceeds 1MB limit');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    // Read file content
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        setCode(content);
+        setFormat(CODING_FILE_EXTENSIONS[fileExtension]);
+        setFileError(null);
+        setError(null);
+        setResult(null);
+        
+        // Reset file input
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (err) {
+        setFileError('❌ Error reading file');
+      }
+    };
+    
+    reader.onerror = () => {
+      setFileError('❌ Error reading file');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    reader.readAsText(file);
   };
 
   return (
@@ -108,17 +196,47 @@ const Reviewer: React.FC = () => {
               </div>
             </div>
 
-            {/* <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 text-[9px] font-black tracking-[0.2em] uppercase rounded-sm border border-emerald-500/30 text-emerald-300 bg-emerald-500/10">
-                SECURITY
-              </span>
-              <span className="px-3 py-1 text-[9px] font-black tracking-[0.2em] uppercase rounded-sm border border-cyan-500/30 text-cyan-300 bg-cyan-500/10">
-                PERFORMANCE
-              </span>
-              <span className="px-3 py-1 text-[9px] font-black tracking-[0.2em] uppercase rounded-sm border border-amber-500/30 text-amber-300 bg-amber-500/10">
-                READABILITY
-              </span>
-            </div> */}
+            {/* File Format Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <label className="text-[9px] font-black tracking-[0.2em] uppercase text-gray-400">File Format</label>
+              <div className="flex gap-3">
+                <select
+                  value={format}
+                  onChange={(e) => setFormat(e.target.value as FileFormat)}
+                  className="px-4 py-2 text-[8px] font-black tracking-[0.2em] uppercase rounded-sm bg-black/5 border border-black/10 text-white hover:border-black/30 transition-all focus:outline-none"
+                >
+                  {(Object.values(FileFormat)).map((fmt) => (
+                    <option key={fmt} value={fmt}>
+                      {fmt}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 text-[8px] font-black tracking-[0.2em] uppercase rounded-sm bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-600/30 hover:border-indigo-500/50 transition-all focus:outline-none"
+                  title="Upload a coding file"
+                >
+                  📁 UPLOAD FILE
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileUpload}
+                  accept={Object.keys(CODING_FILE_EXTENSIONS).join(',')}
+                  className="hidden"
+                  aria-label="Upload coding file"
+                />
+              </div>
+            </div>
+
+            {/* File Upload Error Message */}
+            {fileError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-sm text-red-400 text-[9px] font-mono">
+                {fileError}
+              </div>
+            )}
+
+            
           </div>
 
           <div className="iso-card rounded-xl overflow-hidden border-white/10 group relative">

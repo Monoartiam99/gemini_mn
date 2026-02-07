@@ -1,4 +1,3 @@
-
 export enum ReviewType {
   SECURITY = 'Security',
   PERFORMANCE = 'Performance',
