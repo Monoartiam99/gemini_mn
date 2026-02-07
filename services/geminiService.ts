@@ -1,14 +1,20 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { ReviewType } from "../types";
+import { ReviewType, FileFormat } from "../types";
+import { validateCodeFormat } from "../utils/formatDetection";
 
-export async function reviewCode(code: string, type: ReviewType) {
+export async function reviewCode(code: string, type: ReviewType, format: FileFormat = FileFormat.JAVASCRIPT) {
+  // Validate that code format matches selected format
+  const validation = validateCodeFormat(code, format);
+  if (!validation.isValid) {
+    throw new Error(validation.message || `Invalid code format: Please provide ${format} code`);
+  }
+
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = "gemini-3-pro-preview";
   
   const systemInstruction = `
     You are a world-class senior software engineer and security auditor. 
-    Analyze the provided code for ${type} improvements.
+    Analyze the provided ${format} code for ${type} improvements.
     Output your response in valid JSON format only.
     Do NOT include any markdown formatting or backticks around the JSON.
     Structure:
@@ -20,7 +26,7 @@ export async function reviewCode(code: string, type: ReviewType) {
           "severity": "critical" | "warning" | "info",
           "title": "Short title of the issue",
           "description": "Detailed explanation",
-          "suggestion": "How to fix it"
+          "suggestion": "How to fix it (in ${format})"
         }
       ]
     }
