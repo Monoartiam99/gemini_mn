@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { reviewCode } from '../services/geminiService';
 import { ReviewType, ReviewResponse, FileFormat } from '../types';
+
+// Import Prism and its theme
 import Prism from 'prismjs';
+import 'prismjs/themes/prism-tomorrow.css';
 
 // Import Prism components for syntax highlighting
 import 'prismjs/components/prism-javascript';
