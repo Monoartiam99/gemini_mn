@@ -1,6 +1,8 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { ReviewType, FileFormat } from "../types";
 import { validateCodeFormat } from "../utils/formatDetection";
+
+// Backend API endpoint - configure this based on your backend URL
+const BACKEND_API_URL = ((import.meta as any).env?.VITE_BACKEND_API_URL as string) || 'http://localhost:3000/api';
 
 export async function reviewCode(code: string, type: ReviewType, format: FileFormat = FileFormat.JAVASCRIPT) {
   // Validate that code format matches selected format
@@ -9,68 +11,41 @@ export async function reviewCode(code: string, type: ReviewType, format: FileFor
     throw new Error(validation.message || `Invalid code format: Please provide ${format} code`);
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = "gemini-3-pro-preview";
-  
-  const systemInstruction = `
-    You are a world-class senior software engineer and security auditor. 
-    Analyze the provided ${format} code for ${type} improvements.
-    Output your response in valid JSON format only.
-    Do NOT include any markdown formatting or backticks around the JSON.
-    Structure:
-    {
-      "summary": "Overall summary of the code quality",
-      "score": 85,
-      "issues": [
-        {
-          "severity": "critical" | "warning" | "info",
-          "title": "Short title of the issue",
-          "description": "Detailed explanation",
-          "suggestion": "How to fix it (in ${format})"
-        }
-      ]
-    }
-  `;
-
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: `Code to review:\n\n${code}`,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            score: { type: Type.NUMBER },
-            issues: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  severity: { type: Type.STRING },
-                  title: { type: Type.STRING },
-                  description: { type: Type.STRING },
-                  suggestion: { type: Type.STRING }
-                },
-                required: ["severity", "title", "description", "suggestion"]
-              }
-            }
-          },
-          required: ["summary", "score", "issues"]
-        }
+    // Make POST request to backend API
+    const response = await fetch(`${BACKEND_API_URL}/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        code,
+        type,
+        format
+      }),
     });
 
-    let text = response.text || "{}";
-    // Robust parsing: strip potential markdown code block decorators
-    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `Backend error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
     
-    const result = JSON.parse(text);
+    // Validate response structure
+    if (!result.summary || typeof result.score !== 'number' || !Array.isArray(result.issues)) {
+      throw new Error('Invalid response format from backend');
+    }
+    
     return result;
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
+    console.error("Backend API Error:", error);
+    
+    // Check for network errors
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error(`Audit Failed: Unable to connect to backend API at ${BACKEND_API_URL}`);
+    }
+    
     const message = error?.message || "Internal Analysis Error";
     throw new Error(`Audit Failed: ${message}`);
   }
