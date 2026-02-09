@@ -1,52 +1,34 @@
 import { ReviewType, FileFormat } from "../types";
-import { validateCodeFormat } from "../utils/formatDetection";
 
-// Backend API endpoint - configure this based on your backend URL
-const BACKEND_API_URL = ((import.meta as any).env?.VITE_BACKEND_API_URL as string) || 'http://localhost:3000/api';
+
+const BASE_URL = (import.meta as any).env?.VITE_BACKEND_API_URL || 'http://localhost:8080/api/v1/review';
 
 export async function reviewCode(code: string, type: ReviewType, format: FileFormat = FileFormat.JAVASCRIPT) {
-  // Validate that code format matches selected format
-  const validation = validateCodeFormat(code, format);
-  if (!validation.isValid) {
-    throw new Error(validation.message || `Invalid code format: Please provide ${format} code`);
-  }
+  const formData = new FormData();
+  
+  
+  const codeBlob = new Blob([code], { type: 'text/plain' });
+  formData.append('file', codeBlob, 'test.txt'); 
+
+  formData.append('code', code);
+  formData.append('type', type);
 
   try {
-    // Make POST request to backend API
-    const response = await fetch(`${BACKEND_API_URL}/review`, {
+   
+    const response = await fetch(`${BASE_URL}/analyze`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        code,
-        type,
-        format
-      }),
+      body: formData,
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-      throw new Error(errorData.message || `Backend error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Server Error (${response.status}): ${errorText || response.statusText}`);
     }
 
-    const result = await response.json();
+    return await response.json();
     
-    // Validate response structure
-    if (!result.summary || typeof result.score !== 'number' || !Array.isArray(result.issues)) {
-      throw new Error('Invalid response format from backend');
-    }
-    
-    return result;
   } catch (error: any) {
-    console.error("Backend API Error:", error);
-    
-    // Check for network errors
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error(`Audit Failed: Unable to connect to backend API at ${BACKEND_API_URL}`);
-    }
-    
-    const message = error?.message || "Internal Analysis Error";
-    throw new Error(`Audit Failed: ${message}`);
+    console.error("Connection Error:", error);
+    throw new Error(`Audit Failed: ${error.message}`);
   }
 }
