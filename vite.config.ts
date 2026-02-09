@@ -26,8 +26,7 @@ export default defineConfig(({ mode }) => {
           output: {
             manualChunks: {
               'vendor': ['react', 'react-dom'],
-              'gemini': ['@google/genai'],
-              'prism': ['prismjs']
+              'gemini': ['@google/genai']
             }
           }
         },
