@@ -1,0 +1,99 @@
+# Veilux — Code Reviewer (Veilux Code Reviewer)
+
+![Hero screenshot](image.png)
+
+**Project**
+
+Veilux is a front-end for an automated code-review platform. This repository contains the web client built with React + Vite and TailwindCSS that posts code to a backend review API.
+
+**Demo / Screenshot**
+
+- The screenshot above is the hero section. To include it in this repo, save the attached screenshot into `assets/hero.png` (create the `assets` folder if missing).
+
+**Requirements**
+
+- Node.js (18+ recommended)
+- npm or yarn
+
+**Quick Start**
+
+1. Install dependencies:
+
+```bash
+npm install
+# or
+# yarn
+```
+
+2. Run the dev server:
+
+```bash
+npm run dev
+```
+
+3. Open http://localhost:5173 (or the URL shown by Vite).
+
+**Environment variables**
+
+The client reads one main environment variable (Vite-style):
+
+- `VITE_BACKEND_API_URL` — full URL to the backend review API (defaults to `http://localhost:8080/api/v1/review` if not set).
+
+Set it in a `.env.local` at project root, for example:
+
+```
+VITE_BACKEND_API_URL=https://api.example.com/api/v1/review
+```
+
+Then restart the dev server.
+
+**Available npm scripts**
+
+- `dev` — runs Vite dev server
+- `build` — builds production assets
+- `preview` — locally previews the built output
+
+Use them via `npm run <script>`.
+
+**Packages (from package.json)**
+
+- Dependencies:
+  - `@google/genai` ^1.39.0
+  - `@tailwindcss/vite` ^4.1.18
+  - `react` ^19.2.4
+  - `react-dom` ^19.2.4
+  - `tailwindcss` ^4.1.18
+
+- Dev dependencies:
+  - `@types/node` ^22.14.0
+  - `@vitejs/plugin-react` ^5.0.0
+  - `typescript` ~5.8.2
+  - `vite` ^6.2.0
+
+**Project structure (high level)**
+
+- `index.html` — app entry
+- `index.tsx`, `App.tsx` — React entry points
+- `components/` — UI components (Hero, Navbar, Features, Pricing, etc.)
+- `services/geminiService.ts` — client that calls the backend review API (uses `VITE_BACKEND_API_URL`)
+- `utils/` — helpers (e.g., format detection)
+- `vite.config.ts`, `tsconfig.json` — tooling config
+
+**Notes**
+
+- The client expects the backend to expose an endpoint `POST ${VITE_BACKEND_API_URL}/analyze` which accepts a multipart/form-data payload (`file`, `code`, `type`) and returns JSON.
+- If you don't have a backend running, the client will attempt to contact `http://localhost:8080/api/v1/review` by default.
+
+**Contributing**
+
+1. Fork the repo
+2. Create a branch for your change
+3. Open a PR with a clear description
+
+**License**
+
+Specify your license here.
+
+---
+
+
